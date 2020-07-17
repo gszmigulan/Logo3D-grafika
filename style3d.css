@@ -1,0 +1,37 @@
+* {
+    font-family: 'Roboto', sans-serif;
+}
+
+h1 {
+    font-size: 3em;
+    margin: 0;
+}
+div.data{
+
+    float:right;
+    
+    }
+
+h2 {
+    font-size: 1.3em;
+}
+
+h3 {
+    font-size: 1.1em;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+input {
+    width: 100%;
+}
+
+button {
+    margin-left: 1em;
+    float: left;
+}
+
+.canvas-layout {
+    border: 2px solid white;
+}
