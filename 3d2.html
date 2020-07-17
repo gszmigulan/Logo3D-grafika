@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Turtle programming</title>
+    <link href="style3d.css" rel="stylesheet">
+   
+</head>
+<body>
+        <canvas id="turtleCanvas" width="500" height="500" class="canvas-layout"></canvas>
+    <div class="data">
+        <label for="command"></label><textarea id="command" type="text" rows="10" col="100"> </textarea>
+        <br/> <br/>
+        <button id="execute" onclick="execute()">Execute</button>
+        <br/>
+        <p>
+            polecenia wposywać jednao pod drugim <br/>
+            bez znaków dodatkowych: <br/>
+            - forward nr<br />
+            - left nr<br />
+            - right nr<br />
+            - up nr<br />
+            - down nr<br />
+            - penup <br/>
+            - pendown <br/>
+            -repeat nr <br/> .. <br/> end <br />
+            <br />
+            przykład użycia: (sześcian) <br />
+
+            repeat 3<br/>
+            forward 80<br/>
+            left 90<br/>
+            end<br/>
+            forward 80<br/>
+            down 90<br/>
+            forward 80<br/>
+            up 90<br/>
+            repeat 3<br/>
+            left 90<br/>
+            forward 80<br/>
+            up 90<br/>
+            forward 80<br/>
+            down 180<br/>
+            penup<br/>
+            forward 80<br/>
+            pendown<br/>
+            up 90<br/>
+            end <br/>
+        
+        </p> 
+        uwaga: upewnij się, że spacje pojawiają się tylko przed wartością "nr"
+</div>
+
+<script type = "text/javascript">
+
+ var canvas = document.getElementById("turtleCanvas");
+ var context = canvas.getContext("2d");
+ var cmdField = document.getElementById("command");
+ const Point2D = function(x, y) { this.x = x; this.y = y; };
+ const Point3D = function(x, y, z) { this.x = x; this.y = y; this.z = z; };
+    
+var currX = 0; 
+var currY = 0; 
+var currZ= 400; 
+var angle = 0; 
+var angle2=0;
+var dontDraw = false;
+var minX = -200;
+var maxX = 200; 
+var minY = -200;
+var maxY = 200;
+var minZ = 200; 
+var maxZ= 600; 
+var alreadyExecuted=0; 
+
+    const Cube = function(x, y, z, size) { 
+      Point3D.call(this, x, y, z); 
+      this.vertices = [new Point3D(x - size/2, y - size/2, z - size/2),
+                       new Point3D(x + size/2, y - size/2, z - size/2),
+                       new Point3D(x + size/2, y + size/2, z - size/2),
+                       new Point3D(x - size/2, y + size/2, z - size/2),
+                       new Point3D(x - size/2, y - size/2, z + size/2),
+                       new Point3D(x + size/2, y - size/2, z + size/2),
+                       new Point3D(x + size/2, y + size/2, z + size/2),
+                       new Point3D(x - size/2, y + size/2, z + size/2)];
+
+      this.bok = [[0, 1, 2, 3], [0, 4, 5, 1], [1, 5, 6, 2], [3, 2, 6, 7], [0, 3, 7, 4], [4, 7, 6, 5]];
+    };
+    
+    czy_rysować=[]; 
+
+    const Line = function(x1, y1, z1) { 
+      Point3D.call(this, x1, y1, z1 ); 
+      this.vertices2 = [new Point3D(x1, y1, z1) ];
+    };
+
+    Cube.prototype = {
+      rotateX:function(radian) {
+   
+        for (let index = this.vertices.length - 1; index > -1; -- index) {
+          let p = this.vertices[index];
+          let y = (p.y - this.y) * Math.cos(radian) - (p.z - this.z) * Math.sin(radian);
+          let z = (p.y - this.y) * Math.sin(radian) + (p.z - this.z) * Math.cos(radian);
+          p.y = y + this.y;
+          p.z = z + this.z;
+        }
+      },
+      rotateY:function(radian) {
+    
+        for (let index = this.vertices.length - 1; index > -1; -- index) {
+          let p = this.vertices[index];
+          let x = (p.z - this.z) * Math.sin(radian) + (p.x - this.x) * Math.cos(radian);
+          let z = (p.z - this.z) * Math.cos(radian) - (p.x - this.x) * Math.sin(radian);
+          p.x = x + this.x;
+          p.z = z + this.z;
+        }
+      }
+    };
+
+    Line.prototype = {
+      rotateX:function(radian) {
+      
+        for (let index = this.vertices2.length - 1; index > -1; -- index) {
+          let p = this.vertices2[index];
+          let y = (p.y - this.y) * Math.cos(radian) - (p.z - this.z) * Math.sin(radian);
+          let z = (p.y - this.y) * Math.sin(radian) + (p.z - this.z) * Math.cos(radian);
+          p.y = y + this.y;
+          p.z = z + this.z;
+        }
+      },
+      rotateY:function(radian) {
+        
+        for (let index = this.vertices2.length - 1; index > -1; -- index) {
+          let p = this.vertices2[index];
+          let x = (p.z - this.z) * Math.sin(radian) + (p.x - this.x) * Math.cos(radian);
+          let z = (p.z - this.z) * Math.cos(radian) - (p.x - this.x) * Math.sin(radian);
+          p.x = x + this.x;
+          p.z = z + this.z;
+        }
+      }
+    };
+
+    var pointer = new Point2D(0, 0);
+    var line = new Line(0,0,400);
+    var cube = new Cube(0, 0, 400, 400);
+    var height = document.documentElement.clientHeight;
+    var width = document.documentElement.clientWidth;
+
+    function rzut3Dna2D(points3d, width, height) { 
+      var points2d = new Array(points3d.length);
+      var focal_length = 200;
+      for (let index = points3d.length - 1; index > -1; -- index) {
+        let p = points3d[index];
+        let x = p.x * (focal_length / p.z) + width * 0.5; 
+        let y = p.y * (focal_length / p.z) + height * 0.5;
+        points2d[index] = new Point2D(x, y);
+      }
+      return points2d;
+    }
+
+    function reloard() { 
+      height = document.documentElement.clientHeight;
+      width = document.documentElement.clientWidth;
+      context.canvas.height = height;
+      context.canvas.width  = width;
+      context.fillStyle = "white";
+      context.fillRect(0, 0, width, height);
+      context.strokeStyle = "#f2f2f2";
+      
+      var vertices = rzut3Dna2D(cube.vertices, width, height);
+      
+      for (let index = cube.bok.length - 1; index > -1; -- index) { 
+        let bok = cube.bok[index];
+          context.beginPath();
+          context.moveTo(vertices[bok[0]].x, vertices[bok[0]].y);
+          context.lineTo(vertices[bok[1]].x, vertices[bok[1]].y);
+          context.lineTo(vertices[bok[2]].x, vertices[bok[2]].y);
+          context.lineTo(vertices[bok[3]].x, vertices[bok[3]].y);
+
+
+          context.closePath();
+          context.stroke();
+      
+      }
+         var points = rzut3Dna2D(line.vertices2 , width , height);
+          context.beginPath();
+          context.strokeStyle="blue";
+          for(var i=0;i<line.vertices2.length-1;i++){
+
+          context.moveTo(points[i].x,points[i].y);
+          if(czy_rysować[i]==1){
+          context.lineTo(points[i+1].x, points[i+1].y); }
+
+          currX=line.vertices2[i+1].x;
+          currY= line.vertices2[i+1].y;
+          currZ= line.vertices2[i+1].z;
+          }
+
+          context.closePath();
+          
+          context.stroke();
+    }
+    reloard();
+    
+function watch(){
+    document.addEventListener("keypress", function(e) {
+    e.preventDefault();
+    switch(e.keyCode || e.which) {  
+      case 97:
+       cube.rotateY(0.1);
+       line.rotateY(0.1);
+       reloard();
+        break;
+
+      case 100:
+      cube.rotateY(-0.1);
+      line.rotateY(-0.1);
+      reloard();
+        break;
+
+        case 119:
+        cube.rotateX(0.1);
+        line.rotateX(0.1);
+        reloard();
+        break;
+
+        case 115:
+        cube.rotateX(-0.1);
+        line.rotateX(-0.1);
+        reloard();
+        break;
+
+      case 13: 
+            break;
+    } 
+});
+}
+
+var forward = function (value) {
+    var dx;
+    var dy;
+    var dz;
+     
+    if(Math.sin(angle2)==0 && Math.cos(angle2)==0){
+     dx = value * Math.sin( angle *  Math.PI / 180);
+     dy = value * Math.cos( angle *  Math.PI / 180);
+     dz=value;
+    
+    }else{
+     dx = value * Math.sin( (90-angle2) *  Math.PI / 180) * Math.cos(angle * Math.PI / 180);
+     dy = value * Math.sin( angle *  Math.PI / 180) * Math.sin((90-angle2) * Math.PI / 180);
+     dz = value * Math.cos( (90-angle2) * Math.PI / 180); 
+    }
+    if ( currX + dx <= maxX && currX + dx >= minX && currY + dy <= maxY && currY + dy >= minY && currZ + dz <= maxZ && currZ + dz >= minZ) {
+    currX += dx;
+    currY += dy;
+    currZ += dz;
+
+        if(dontDraw){
+            czy_rysować.push(0);
+        }else{
+            czy_rysować.push(1);
+        }
+        line.vertices2.push(new Point3D(currX , currY , currZ));
+        reloard();
+    }
+    else{
+        alert(" jesteś poza polem");
+       return;
+    }
+};
+
+var left = function (value) {
+    angle = (angle - value) % 360;
+};
+
+var right = function (value) {
+    angle = (angle + value) % 360;
+};
+
+var Penup = function () {
+    dontDraw = true;
+};
+
+var Pendown = function () {
+    dontDraw = false;
+
+};
+
+var up = function (value) {
+    angle2= (angle2 - value) % 360;
+};
+
+var down = function (value) {
+    angle2= (angle2 + value) % 360;
+
+};
+
+
+
+var executeOrder = function (cmd) {
+    var value;
+    switch (cmd[0]) {
+        case "forward":
+            value = parseInt(cmd[1]);
+            forward(value);
+            break;
+        case "right":
+            value = parseInt(cmd[1]);
+            right(value);
+            break;
+        case "left":
+            value = parseInt(cmd[1]);
+            left(value);
+            break;
+        case "down":
+            value = parseInt(cmd[1]);
+            down(value);
+            break;
+            case "up":
+            value = parseInt(cmd[1]);
+            up(value);
+            break;
+        case "penup":
+            Penup();
+            break;
+        case "pendown":
+            Pendown();
+            default:
+            break;
+       
+    }
+
+};
+
+
+function polecenia () {
+    var cmd;
+    var value;
+    var input = cmdField.value;
+    input = input.split("\n");
+    for ( var i = 0; i < input.length; i++) {
+        cmd = input[i];
+        cmd = cmd.toLowerCase();
+        cmd = cmd.split(" ");
+
+        if (cmd[0] === "repeat") {
+            var loopStart = i + 1;
+            var j, k;
+
+            value = parseInt(cmd[1]);
+            for (j = 0; j < value; j++) {
+                k = loopStart;
+                cmd = input[k];
+                while (cmd[0] !== "end") {
+                    cmd = input[k];
+                    cmd = cmd.split(" ");
+                    executeOrder(cmd);
+                    k++;
+                }
+            }
+        } else {
+            executeOrder(cmd);
+        }
+    }
+}
+
+var execute = function () {
+    if(alreadyExecuted==1){ 
+      location.reload();
+     }
+    context.clearRect(0,0,maxX,maxY);
+    polecenia();
+    watch();
+    alreadyExecuted=1;
+};
+
+
+  </script>
+
+</body>
+</html>
